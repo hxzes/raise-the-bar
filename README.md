@@ -35,8 +35,9 @@ Without keys the app runs in local-only mode (no login, saved in the browser). U
 ## Deploy (Vercel)
 
 1. vercel.com → Add New → Project → import this repo. Framework preset: **Vite**.
-2. Environment variables: `VITE_SUPABASE_URL`, `VITE_SUPABASE_KEY`.
-3. Deploy, then put the production URL into Supabase (step 4 above).
+2. Deploy. The Supabase URL and publishable key are in `.env.production`, so no env vars are needed
+   (set `VITE_SUPABASE_URL` / `VITE_SUPABASE_KEY` in Vercel only if you want to override them).
+3. Put the production URL into Supabase (step 4 above).
 
 ## Moving old progress in
 
