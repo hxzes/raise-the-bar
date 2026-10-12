@@ -675,15 +675,29 @@ function badgeFor(v) {
 }
 function renderIsland() {
   const nav = $("island"); if (!nav) return;
-  nav.innerHTML = VIEWS.map(([v, label, icon]) => {
+  if (!nav.querySelector(".ind")) nav.innerHTML = `<span class="ind" aria-hidden="true"></span><div class="isl-btns"></div>`;
+  nav.querySelector(".isl-btns").innerHTML = VIEWS.map(([v, label, icon]) => {
     const b = badgeFor(v);
     return `<button data-act="nav" data-v="${v}" data-key="nav-${v}" aria-label="${label}" ${view === v ? 'aria-current="page"' : ""}>
       <svg viewBox="0 0 24 24" aria-hidden="true">${icon}</svg><span class="lbl">${label}</span>${b ? `<span class="dot ${b === "!" ? "new" : ""}">${b}</span>` : ""}</button>`;
   }).join("");
+  placeInd();
 }
+/* The yellow pill slides between tabs. */
+function placeInd(instant) {
+  const nav = $("island"); if (!nav) return;
+  const ind = nav.querySelector(".ind"), act = nav.querySelector("[aria-current]");
+  if (!ind || !act) return;
+  if (instant || !ind.dataset.placed) { ind.classList.add("noanim"); requestAnimationFrame(() => requestAnimationFrame(() => ind.classList.remove("noanim"))); }
+  ind.dataset.placed = "1";
+  ind.style.width = act.offsetWidth + "px";
+  ind.style.transform = `translateX(${act.offsetLeft}px)`;
+}
+addEventListener("resize", () => placeInd(true));
 function setView(v, fromHash) {
   if (!VIEWS.some(x => x[0] === v)) v = "today";
   const changed = v !== view;
+  const dir = VIEWS.findIndex(x => x[0] === v) - VIEWS.findIndex(x => x[0] === view);
   view = v;
   document.querySelectorAll("#app .view").forEach(el => { el.hidden = el.dataset.view !== v; });
   if (!fromHash && location.hash !== "#" + v) history.replaceState(null, "", "#" + v);
@@ -691,13 +705,14 @@ function setView(v, fromHash) {
   if (v === "boss" && S.flags.bossIntro && !S.flags.bossSeen) { S.flags.bossSeen = true; seen = true; }
   if (v === "shop" && S.flags.shopIntro && !S.flags.shopSeen) { S.flags.shopSeen = true; seen = true; }
   if (seen) commit(); else renderIsland();
-  if (changed) { window.scrollTo(0, 0); playEnter(v); }
+  if (changed) { window.scrollTo(0, 0); playEnter(v, dir); }
 }
-function playEnter(v) {
+function playEnter(v, dir = 0) {
   const el = document.querySelector(`#app .view[data-view="${v}"]`); if (!el || !motionOn) return;
   [...el.children].forEach((c, i) => c.style.setProperty("--d", i));
-  el.classList.remove("enter"); void el.offsetWidth; el.classList.add("enter");
-  clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove("enter"), 1400);
+  el.classList.remove("enter", "from-r", "from-l"); void el.offsetWidth;
+  el.classList.add("enter"); if (dir) el.classList.add(dir > 0 ? "from-r" : "from-l");
+  clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove("enter", "from-r", "from-l"), 1400);
   const act = document.querySelector("#island [aria-current]"); if (act) { act.classList.remove("just"); void act.offsetWidth; act.classList.add("just"); }
   if (v === "stats") el.querySelectorAll(".stat-cell b").forEach(b => countUp(b, 0, Number(b.textContent) || 0, 800));
 }

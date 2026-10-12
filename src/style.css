@@ -505,7 +505,7 @@ dialog.sheet::backdrop{background:rgba(14,18,64,.6)}
 .view.enter .hc{animation:popin .3s both;animation-delay:calc(300ms + var(--i,0) * 10ms)}
 .top .logo{animation:wiggle 1s .3s both}
 .island{animation:islandin .6s .25s cubic-bezier(.2,1.4,.4,1) both}
-.island button.just{animation:jelly .45s}
+.island button.just svg{animation:jelly .45s}
 .meter i.grow{animation:grow .9s cubic-bezier(.2,1,.3,1)}
 .pill.bump{animation:bump .45s}
 
@@ -593,3 +593,17 @@ dialog.sheet::backdrop{background:rgba(14,18,64,.6)}
 /* onboarding */
 .ob.enter>*{animation:rise .45s cubic-bezier(.2,1.25,.4,1) both;animation-delay:calc(var(--d,0) * 60ms)}
 .ob-tile.picked,.ob-chip.picked{animation:jelly .4s}
+
+/* tab switching: directional slide + sliding pill */
+@keyframes slideR{from{opacity:0;transform:translateX(56px)}to{opacity:1;transform:none}}
+@keyframes slideL{from{opacity:0;transform:translateX(-56px)}to{opacity:1;transform:none}}
+.view.enter.from-r{animation:slideR .42s cubic-bezier(.2,1.15,.35,1) both}
+.view.enter.from-l{animation:slideL .42s cubic-bezier(.2,1.15,.35,1) both}
+.isl-btns{position:relative;z-index:1;display:flex;align-items:center;gap:4px}
+.island .ind{position:absolute;top:6px;left:6px;height:50px;width:50px;border-radius:999px;background:var(--sun);box-shadow:inset 0 0 0 3px var(--ink);
+  transition:transform .45s cubic-bezier(.3,1.45,.45,1),width .45s cubic-bezier(.3,1.45,.45,1)}
+.island .ind.noanim{transition:none}
+.island button[aria-current="page"]{background:transparent;box-shadow:none}
+.island button.just .lbl{animation:lblin .35s .1s cubic-bezier(.2,1.4,.4,1) both}
+@keyframes lblin{from{opacity:0;transform:translateX(-6px) scale(.8)}to{opacity:1;transform:none}}
+@media (max-width:370px){.island .ind{height:46px}}
