@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Raise the Bar</title>
+  <meta name="description" content="Habits, but make it a game. Tick off daily bars, earn XP and coins, beat a weekly boss.">
+  <meta name="theme-color" content="#2E5BFF">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Raise the Bar">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Rubik:wght@500;600;700;800&display=swap">
+</head>
+<body>
+<div class="boot" id="boot">Loading…</div>
+<div id="auth" hidden></div>
+<div id="app" hidden>
+<div class="wrap">
+  <header class="top on-blue">
+    <h1 class="logo"><small>Raise the</small>Bar</h1>
+    <div class="pill" id="coins" title="Coins"></div>
+  </header>
+  <p class="hello" id="hello"></p>
+  <div class="band-clip" aria-hidden="true">
+    <div class="band"><div class="band-track" id="band"></div></div>
+  </div>
+
+  <main class="grid">
+    <div class="col">
+      <section class="card" id="hero" aria-label="Your level"></section>
+      <section id="bored" aria-label="Bored button"></section>
+      <section id="quests" class="on-blue" aria-label="Today's bars"></section>
+    </div>
+    <aside class="col">
+      <section class="card" id="boss" aria-label="Weekly boss"></section>
+      <section class="card" id="wish" aria-label="Wishlist"></section>
+      <section class="card" id="history" aria-label="Last five weeks"></section>
+      <section class="card" id="treats" aria-label="Treats"></section>
+    </aside>
+  </main>
+
+  <footer class="foot on-blue" id="foot"></footer>
+</div>
+</div>
+
+<input type="file" id="import-file" accept="application/json,.json" hidden>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<canvas id="fx" aria-hidden="true"></canvas>
+
+<dialog class="sheet" id="editor" aria-labelledby="ed-title">
+  <form id="ed-form" novalidate>
+    <div class="sheet-head">
+      <h2 id="ed-title">New bar</h2>
+      <button type="button" class="iconbtn" data-act="ed-close" aria-label="Close"></button>
+    </div>
+    <div class="field"><label for="ed-name">The bar</label><input class="inp" id="ed-name" maxlength="60" autocomplete="off" placeholder="20-min walk"></div>
+    <div class="field"><label for="ed-mini">Lazy version (optional)</label><input class="inp" id="ed-mini" maxlength="60" autocomplete="off" placeholder="10 min outside"></div>
+    <div class="field"><span class="flabel">Type</span><div class="chips" id="ed-cat"></div></div>
+    <div class="field"><span class="flabel">When</span><div class="chips" id="ed-slot"></div></div>
+    <div class="field"><label for="ed-time">Time (optional)</label><input class="inp" id="ed-time" maxlength="10" autocomplete="off" placeholder="16:00"></div>
+    <div class="field"><span class="flabel">Days</span><div class="chips" id="ed-days"></div></div>
+    <div class="field"><span class="flabel">XP</span><div class="chips" id="ed-xp"></div></div>
+    <p class="err" id="ed-err" hidden>Give it a name first.</p>
+    <div class="sheet-actions">
+      <button type="button" class="btn red" id="ed-del" data-act="ed-del">Delete</button>
+      <button type="submit" class="btn mint" id="ed-save">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>
