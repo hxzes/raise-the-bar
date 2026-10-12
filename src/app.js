@@ -46,7 +46,7 @@ function defaultTasks(){ return [
   {id:"gym",    name:"12-min home workout",        mini:"10 push-ups + 15 squats",   cat:"body",  slot:"after",   time:"",      days:[1,3,5],          xp:40},
   {id:"focus",  name:"45 min on your main goal",   mini:"15 min on it",              cat:"biz",   slot:"after",   time:"",      days:WEEKDAYS.slice(), xp:40},
   {id:"water",  name:"Drink 2 litres of water",    mini:"Drink 1 litre",             cat:"food",  slot:"any",     time:"",      days:ALL.slice(),      xp:15},
-  {id:"food",   name:"No delivery, ate at home",   mini:"",                          cat:"food",  slot:"evening", time:"",      days:ALL.slice(),      xp:20},
+  {id:"food",   name:"No impulse food orders",    mini:"",                          cat:"food",  slot:"evening", time:"",      days:ALL.slice(),      xp:20},
   {id:"review", name:"Sunday review",              mini:"Write 1 thing that worked", cat:"mind",  slot:"evening", time:"",      days:[0],              xp:50},
   {id:"phone",  name:"Phone off the bed by 22:30", mini:"Lights off by 23:30",       cat:"sleep", slot:"evening", time:"22:30", days:ALL.slice(),      xp:20}
 ];}
