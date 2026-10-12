@@ -696,16 +696,42 @@ function placeInd(instant) {
 addEventListener("resize", () => placeInd(true));
 function setView(v, fromHash) {
   if (!VIEWS.some(x => x[0] === v)) v = "today";
-  const changed = v !== view;
-  const dir = VIEWS.findIndex(x => x[0] === v) - VIEWS.findIndex(x => x[0] === view);
+  const prev = view, changed = v !== prev;
+  const dir = VIEWS.findIndex(x => x[0] === v) - VIEWS.findIndex(x => x[0] === prev);
   view = v;
-  document.querySelectorAll("#app .view").forEach(el => { el.hidden = el.dataset.view !== v; });
+  endLeave();
+  const old = changed && motionOn ? document.querySelector(`#app .view[data-view="${prev}"]`) : null;
+  const keep = old && !old.hidden ? old : null;
+  if (keep) startLeave(keep, dir, window.scrollY);
+  document.querySelectorAll("#app .view").forEach(el => { if (el !== keep) el.hidden = el.dataset.view !== v; });
   if (!fromHash && location.hash !== "#" + v) history.replaceState(null, "", "#" + v);
   let seen = false;
   if (v === "boss" && S.flags.bossIntro && !S.flags.bossSeen) { S.flags.bossSeen = true; seen = true; }
   if (v === "shop" && S.flags.shopIntro && !S.flags.shopSeen) { S.flags.shopSeen = true; seen = true; }
   if (seen) commit(); else renderIsland();
-  if (changed) { window.scrollTo(0, 0); playEnter(v, dir); }
+  if (changed) { window.scrollTo({ top: 0, left: 0, behavior: "instant" }); playEnter(v, dir); }
+}
+/* Old tab slides + fades out on top of the new one while the new one slides in. */
+let leaving = null;
+function startLeave(el, dir, y) {
+  const box = el.parentElement;
+  box.style.minHeight = Math.max(0, el.offsetHeight - y) + "px";
+  box.classList.add("swapping");
+  el.classList.remove("enter", "from-r", "from-l");
+  el.style.top = -y + "px";
+  el.inert = true; el.setAttribute("aria-hidden", "true");
+  el.classList.add("leaving", dir < 0 ? "to-r" : "to-l");
+  leaving = el;
+  el._lt = setTimeout(endLeave, 240);
+}
+function endLeave() {
+  if (!leaving) return;
+  const el = leaving; leaving = null;
+  clearTimeout(el._lt);
+  el.classList.remove("leaving", "to-l", "to-r");
+  el.style.top = ""; el.inert = false; el.removeAttribute("aria-hidden");
+  el.hidden = el.dataset.view !== view;
+  const box = el.parentElement; box.classList.remove("swapping"); box.style.minHeight = "";
 }
 function playEnter(v, dir = 0) {
   const el = document.querySelector(`#app .view[data-view="${v}"]`); if (!el || !motionOn) return;
@@ -717,6 +743,7 @@ function playEnter(v, dir = 0) {
   if (v === "stats") el.querySelectorAll(".stat-cell b").forEach(b => countUp(b, 0, Number(b.textContent) || 0, 800));
 }
 function setViewQuiet(v) {
+  endLeave();
   view = VIEWS.some(x => x[0] === v) ? v : "today";
   document.querySelectorAll("#app .view").forEach(el => { el.hidden = el.dataset.view !== view; });
 }

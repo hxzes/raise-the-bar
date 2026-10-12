@@ -417,7 +417,7 @@ dialog.sheet::backdrop{background:rgba(14,18,64,.6)}
 .on-blue-link{color:var(--paper);justify-self:center}
 
 /* ---------- views + floating island nav ---------- */
-#app .wrap{padding-bottom:calc(130px + env(safe-area-inset-bottom,0px))}
+#app .wrap{padding-bottom:calc(130px + env(safe-area-inset-bottom,0px));overflow-x:clip}
 .views{max-width:680px;margin:18px auto 0}
 .view{display:grid;gap:24px;min-width:0}
 .view>section:empty{display:none}
@@ -595,10 +595,16 @@ dialog.sheet::backdrop{background:rgba(14,18,64,.6)}
 .ob-tile.picked,.ob-chip.picked{animation:jelly .4s}
 
 /* tab switching: directional slide + sliding pill */
-@keyframes slideR{from{opacity:0;transform:translateX(56px)}to{opacity:1;transform:none}}
-@keyframes slideL{from{opacity:0;transform:translateX(-56px)}to{opacity:1;transform:none}}
-.view.enter.from-r{animation:slideR .42s cubic-bezier(.2,1.15,.35,1) both}
-.view.enter.from-l{animation:slideL .42s cubic-bezier(.2,1.15,.35,1) both}
+@keyframes slideR{from{opacity:0;transform:translateX(90px)}to{opacity:1;transform:none}}
+@keyframes slideL{from{opacity:0;transform:translateX(-90px)}to{opacity:1;transform:none}}
+@keyframes outL{to{opacity:0;transform:translateX(-90px)}}
+@keyframes outR{to{opacity:0;transform:translateX(90px)}}
+.views{position:relative}
+.views.swapping{overflow:hidden;overflow:clip}
+.view.enter.from-r{animation:slideR .46s .15s cubic-bezier(.2,1.1,.35,1) both}
+.view.enter.from-l{animation:slideL .46s .15s cubic-bezier(.2,1.1,.35,1) both}
+.view.leaving{position:absolute;left:0;right:0;z-index:1;pointer-events:none;animation:outL .2s cubic-bezier(.4,0,1,1) both}
+.view.leaving.to-r{animation-name:outR}
 .isl-btns{position:relative;z-index:1;display:flex;align-items:center;gap:4px}
 .island .ind{position:absolute;top:6px;left:6px;height:50px;width:50px;border-radius:999px;background:var(--sun);box-shadow:inset 0 0 0 3px var(--ink);
   transition:transform .45s cubic-bezier(.3,1.45,.45,1),width .45s cubic-bezier(.3,1.45,.45,1)}
