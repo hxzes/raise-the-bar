@@ -2,6 +2,11 @@
 
 Habits, but make it a game. Tick off daily bars for XP, do the lazy "mini" version when you can't be bothered, hit **I'm bored** for a 5-minute quest, beat a new boss every week, and spend coins on treats or wishlist items.
 
+- Personal onboarding (name, up to 3 goal areas, specific goals, starting point, difficulty, daily time, days/times) that builds a first-week plan from a curated quest library (`src/content.js`, generator in `src/plan.js`)
+- Weekly check-in that levels quests up when you crush them and makes them easier when you skip them
+- Weekly boss whose HP scales with your plan, heals a little on missed days, and drops coins, XP and a trophy
+- I'm Bored quick quests sized by time (2/5/15 min) and energy, tilted toward your goals
+- Real-life milestones, a coin shop with an explained economy, and a wishlist priced in euros
 - Vite + vanilla JS, no framework
 - Supabase Auth (Google + email/password) and one `saves` row per user
 - Live sync between devices (Supabase Realtime)
