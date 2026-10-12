@@ -220,7 +220,7 @@ function render() {
   if (!started || !$("onboard").hidden) return;
   const fk = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.key : null;
   renderTop(); renderNotice(); renderHero(); renderNext(); renderBored(); renderQuests();
-  renderBoss(); renderMiles(); renderShop(); renderHistory(); renderFoot();
+  renderBoss(); renderTrophies(); renderShop(); renderStats(); renderMiles(); renderHistory(); renderSettings(); renderIsland();
   if (fk) { const el = document.querySelector(`[data-key="${CSS.escape(fk)}"]`); if (el) el.focus({ preventScroll: true }); }
 }
 function displayName() {
@@ -444,7 +444,6 @@ function renderBoss() {
     week += `<div class="wd ${cls}"><span>${DAY_SHORT[DAY_ORDER[i]].slice(0, 2).toUpperCase()}</span><i>${ic}</i></div>`;
   }
   const total = st.hp + st.heal;
-  const wins = Object.entries(S.bossWins).sort((a, b) => a[0] < b[0] ? 1 : -1).slice(0, 4);
   box.innerHTML = `
     <div class="row-between"><h2 class="h3">Weekly boss</h2>
       <span class="chip-s ${st.won ? "win" : ""}">${st.won ? "Beaten" : daysLeft === 1 ? "Last day" : `${daysLeft} days left`}</span></div>
@@ -460,8 +459,7 @@ function renderBoss() {
     <div class="num">HP ${st.left} / ${total} · every XP you earn hits</div>
     ${st.heal ? `<p class="heal">Healed +${st.heal} from ${st.missed.length} missed day${st.missed.length === 1 ? "" : "s"}. Your weekly shield blocks one.</p>` : ""}
     <p class="reward">${I.trophy}Win: +${BOSS_COINS} coins · +${BOSS_XP} XP · trophy</p>`}
-    <div class="week">${week}</div>
-    ${wins.length ? `<div class="trophies"><span class="eyebrow">Trophies · ${bossesBeaten()}</span><div>${wins.map(([m, w]) => `<span class="trophy">${I.trophy}${esc(w.n || bossFor(m).n)}</span>`).join("")}</div></div>` : ""}`;
+    <div class="week">${week}</div>`;
 }
 
 /* Real-world milestones from the log. */
@@ -579,25 +577,108 @@ function renderHistory() {
     <div class="heat">${cells}</div>
     <div class="legend"><span><i style="background:var(--paper-2)"></i>Nothing</span><span><i style="background:var(--paper-2);background:color-mix(in srgb,var(--mint) 38%,var(--paper))"></i>Some</span><span><i style="background:var(--mint)"></i>Secured</span><span><i style="background:var(--sun)"></i>Every bar</span></div>`;
 }
-function renderFoot() {
-  if (pendingImport) {
-    $("foot").innerHTML = `<span class="sync"><i></i>Replace your progress with “${esc(pendingImport.name)}”?</span>
-      <div class="foot-btns"><button class="ghost warn" data-act="import-yes" data-key="import-yes">Replace</button>
-      <button class="ghost" data-act="import-no" data-key="import-no">Cancel</button></div>`;
-    return;
-  }
+function renderSettings() {
+  const box = $("settings"); if (!box) return;
   const txt = { synced: "Saved to your account", syncing: "Saving…", local: "Local only, not synced", error: "Couldn't sync. Saved on this device." }[sync];
-  const who = user && user.email ? ` · ${esc(user.email)}` : "";
-  $("foot").innerHTML = `<span class="sync ${sync === "synced" ? "ok" : sync === "error" ? "err" : ""}"><i></i>${txt}${who}</span>
-    <div class="foot-btns">
-      <button class="ghost" data-act="setup" data-key="f-setup">${S.onboard ? "Redo setup" : "Personal setup"}</button>
-      <button class="ghost" data-act="export" data-key="export">Export</button>
-      <button class="ghost" data-act="import" data-key="import">Import</button>
-      <button class="ghost" data-act="sound" data-key="sound" aria-pressed="${soundOn}">Sound ${soundOn ? "on" : "off"}</button>
-      <button class="ghost ${confirmReset ? "warn" : ""}" data-act="reset" data-key="reset">${confirmReset ? "Tap again: wipe progress" : "Reset progress"}</button>
-      ${opts.signOut ? `<button class="ghost" data-act="signout" data-key="signout">Sign out</button>` : ""}
+  const imp = pendingImport ? `<div class="set-confirm"><p>Replace your progress with “${esc(pendingImport.name)}”?</p>
+      <div class="ci-actions"><button class="btn red" data-act="import-yes" data-key="import-yes">Replace</button>
+      <button class="btn white" data-act="import-no" data-key="import-no">Cancel</button></div></div>` : "";
+  box.innerHTML = `
+    <div class="card set-card">
+      <h2 class="h3">Account</h2>
+      <div class="set-row"><span class="sync ${sync === "synced" ? "ok" : sync === "error" ? "err" : ""}"><i></i>${txt}</span></div>
+      ${user && user.email ? `<div class="set-row"><span class="set-label">Signed in as</span><b>${esc(user.email)}</b></div>` : ""}
+      <div class="set-row"><span class="set-label">Name</span><b>${esc(displayName() || "Not set")}</b></div>
+      ${opts.signOut ? `<button class="btn white" data-act="signout" data-key="signout">Sign out</button>` : ""}
+    </div>
+    <div class="card set-card">
+      <h2 class="h3">Quests</h2>
+      <p class="set-text">${S.onboard ? "Redo the 2-minute setup to get a fresh set of quests. Your XP, coins and streak stay." : "Run the 2-minute setup to get quests picked for your goals. Your XP, coins and streak stay."}</p>
+      <button class="btn mint" data-act="setup" data-key="f-setup">${S.onboard ? "Redo setup" : "Start setup"}</button>
+    </div>
+    <div class="card set-card">
+      <h2 class="h3">Your data</h2>
+      <p class="set-text">Download your progress as a file, or load one in.</p>
+      <div class="ci-actions"><button class="btn white" data-act="export" data-key="export">Export</button><button class="btn white" data-act="import" data-key="import">Import</button></div>
+      ${imp}
+    </div>
+    <div class="card set-card">
+      <h2 class="h3">App</h2>
+      <div class="ci-actions">
+        <button class="btn white" data-act="sound" data-key="sound" aria-pressed="${soundOn}">Sound ${soundOn ? "on" : "off"}</button>
+        <button class="btn ${confirmReset ? "red" : "white"}" data-act="reset" data-key="reset">${confirmReset ? "Tap again: wipe progress" : "Reset progress"}</button>
+      </div>
     </div>`;
 }
+
+/* Trophy cabinet: every boss you've beaten. */
+function renderTrophies() {
+  const box = $("trophies"); if (!box) return;
+  const wins = Object.entries(S.bossWins).sort((a, b) => a[0] < b[0] ? 1 : -1);
+  const cur = bossFor(mondayOf(todayKey())), next = bossFor(addDays(mondayOf(todayKey()), 7));
+  const color = n => (BOSSES.find(b => b.n === n) || cur).c;
+  const rows = wins.map(([m, w]) => { const n = w.n || bossFor(m).n; return `<div class="tro-row">
+      <div class="tro-art">${bossSVG(color(n), true)}</div>
+      <div class="tro-meta"><b>${esc(n)}</b><span>Week of ${fmtDay(m)}</span></div>
+      <span class="tro-rew">${I.trophy}+${BOSS_COINS}</span></div>`; }).join("");
+  box.innerHTML = `<div class="row-between"><h2 class="h3">Trophy cabinet</h2><span class="chip-s ${bossesBeaten() ? "win" : ""}">${bossesBeaten()} beaten</span></div>
+    ${rows ? `<div class="tro-list">${rows}</div>` : `<p class="lock-text">${I.trophy}No trophies yet. Take down ${esc(cur.n)} this week and it lands here.</p>`}
+    ${S.banked.boss ? `<p class="last">+ ${S.banked.boss} older boss${S.banked.boss === 1 ? "" : "es"} from over a year ago.</p>` : ""}
+    <p class="last">Next week: ${esc(next.n)}.</p>`;
+}
+
+/* Stats: all-time numbers. */
+function renderStats() {
+  const box = $("stats"); if (!box) return;
+  const lv = levelInfo(totalXP());
+  let secDays = 0, bars = 0;
+  for (const k in S.log) { if (secured(k)) secDays++; bars += Object.keys(S.log[k].t || {}).length + (S.log[k].b || 0); }
+  const cell = (n, l) => `<div class="stat-cell"><b>${n}</b><span>${l}</span></div>`;
+  box.innerHTML = `<div class="row-between"><h2 class="h3">Your stats</h2><span class="chip-s">Lvl ${lv.L} · ${lv.name}</span></div>
+    <div class="stat-grid">${cell(totalXP(), "total XP")}${cell(streak(), "day streak")}${cell(secDays, "days secured")}${cell(bars, "bars done")}${cell(bossesBeaten(), "bosses beaten")}${cell(coins(), "coins now")}</div>
+    <p class="last">Playing since ${fmtDay(S.startDate)}.</p>`;
+}
+
+/* Floating island navigation. */
+const VIEWS = [
+  ["today", "Today", '<path d="M3.5 11L12 4l8.5 7v8.5a1 1 0 0 1-1 1H15v-6H9v6H4.5a1 1 0 0 1-1-1z"/>'],
+  ["boss", "Boss", '<path d="M5 3.5l2.6 5M19 3.5l-2.6 5"/><circle cx="12" cy="14" r="7"/><path d="M9.3 13h.01M14.7 13h.01M9.5 17.3l1.25-1 1.25 1 1.25-1 1.25 1"/>'],
+  ["shop", "Shop", '<path d="M5 8.5h14l-1.2 11.5H6.2z"/><path d="M9 8.5V7a3 3 0 0 1 6 0v1.5"/>'],
+  ["stats", "Stats", '<path d="M5 20v-6M12 20V5M19 20v-10M3 20.5h18"/>'],
+  ["more", "More", '<circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.6M12 18.6v2.6M2.8 12h2.6M18.6 12h2.6M5.5 5.5l1.8 1.8M16.7 16.7l1.8 1.8M5.5 18.5l1.8-1.8M16.7 7.3l1.8-1.8"/>']
+];
+let view = "today";
+function badgeFor(v) {
+  if (v === "today") { const k = todayKey(), e = entry(k); const n = sched(k).filter(t => !e.t[t.id]).length; return n ? String(n) : ""; }
+  if (v === "boss") return S.flags.bossIntro && !S.flags.bossSeen ? "!" : "";
+  if (v === "shop") return S.flags.shopIntro && !S.flags.shopSeen ? "!" : "";
+  return "";
+}
+function renderIsland() {
+  const nav = $("island"); if (!nav) return;
+  nav.innerHTML = VIEWS.map(([v, label, icon]) => {
+    const b = badgeFor(v);
+    return `<button data-act="nav" data-v="${v}" data-key="nav-${v}" aria-label="${label}" ${view === v ? 'aria-current="page"' : ""}>
+      <svg viewBox="0 0 24 24" aria-hidden="true">${icon}</svg><span class="lbl">${label}</span>${b ? `<span class="dot ${b === "!" ? "new" : ""}">${b}</span>` : ""}</button>`;
+  }).join("");
+}
+function setView(v, fromHash) {
+  if (!VIEWS.some(x => x[0] === v)) v = "today";
+  const changed = v !== view;
+  view = v;
+  document.querySelectorAll("#app .view").forEach(el => { el.hidden = el.dataset.view !== v; });
+  if (!fromHash && location.hash !== "#" + v) history.replaceState(null, "", "#" + v);
+  let seen = false;
+  if (v === "boss" && S.flags.bossIntro && !S.flags.bossSeen) { S.flags.bossSeen = true; seen = true; }
+  if (v === "shop" && S.flags.shopIntro && !S.flags.shopSeen) { S.flags.shopSeen = true; seen = true; }
+  if (seen) commit(); else renderIsland();
+  if (changed) window.scrollTo(0, 0);
+}
+function setViewQuiet(v) {
+  view = VIEWS.some(x => x[0] === v) ? v : "today";
+  document.querySelectorAll("#app .view").forEach(el => { el.hidden = el.dataset.view !== view; });
+}
+addEventListener("hashchange", () => { if (started) setView(location.hash.slice(1), true); });
 
 /* ---------- feedback ---------- */
 let toastTimer = 0, toastQueue = [];
@@ -765,7 +846,7 @@ function startSetup(first) {
       S.tasks = plan;
       if (fresh) { S.startDate = todayKey(); S.bossHP = {}; }
       S.checkins[mondayOf(todayKey())] = "done";
-      S.flags.noSetup = false; viewDay = 0; editMode = false; nextSkip.clear();
+      S.flags.noSetup = false; viewDay = 0; editMode = false; nextSkip.clear(); setViewQuiet("today"); history.replaceState(null, "", "#today");
       $("app").hidden = false; ensureWeek(); commit(); window.scrollTo(0, 0);
       sfx("big"); bigBurst(); toast(`Let's go${S.nick ? ", " + S.nick : ""}. Week 1 starts now.`);
     },
@@ -866,10 +947,11 @@ document.addEventListener("click", ev => {
     case "setup-no": S.flags.noSetup = true; commit(); break;
     case "mq-edit": mqEditing = true; render(); { const i = $("mq-input"); if (i) { i.focus(); i.select(); } } break;
     case "sound": soundOn = !soundOn; lsSet(LS_SOUND, soundOn ? "on" : "off"); render(); if (soundOn) sfx("pop"); break;
+    case "nav": setView(b.dataset.v); break;
     case "export": exportSave(); break;
     case "import": $("import-file").value = ""; $("import-file").click(); break;
     case "import-yes": if (pendingImport) { S = pendingImport.data; pendingImport = null; prune(); ensureWeek(); commit(); toast("Progress imported."); } break;
-    case "import-no": pendingImport = null; renderFoot(); break;
+    case "import-no": pendingImport = null; renderSettings(); break;
     case "signout": if (opts.signOut) opts.signOut(); break;
     case "reset":
       if (!confirmReset) { confirmReset = true; render(); return; }
@@ -921,13 +1003,13 @@ $("import-file").addEventListener("change", async ev => {
   try {
     const r = normalize(JSON.parse(await file.text()));
     if (!r) throw new Error("bad file");
-    pendingImport = { name: file.name, data: r }; renderFoot();
+    pendingImport = { name: file.name, data: r }; setView("more"); renderSettings();
   } catch { toast("That file isn't a Raise the Bar save."); }
 });
 
 /* ---------- account + sync ---------- */
 let started = false, user = null, store = null, opts = {}, pendingImport = null;
-function setSync(s) { if (sync !== s) { sync = s; if (started && $("onboard").hidden) renderFoot(); } }
+function setSync(s) { if (sync !== s) { sync = s; if (started && $("onboard").hidden) renderSettings(); } }
 function adopt(r) { S = r; prune(); ensureWeek(); lsSet(LS_KEY, JSON.stringify(S)); render(); }
 async function pullRemote() {
   if (!store) return;
@@ -962,6 +1044,8 @@ export async function startApp(u, options = {}) {
   started = true;
   $("boot").hidden = true;
 
+  view = "";
+  setViewQuiet(location.hash.slice(1));
   if (isFresh() && !S.flags.noSetup) startSetup(true);
   else { $("app").hidden = false; render(); }
 

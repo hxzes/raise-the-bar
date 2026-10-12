@@ -27,24 +27,32 @@
   </header>
   <p class="hello" id="hello"></p>
 
-  <main class="grid">
-    <div class="col">
+  <main class="views">
+    <div class="view" data-view="today">
       <section id="notice" aria-label="Updates"></section>
       <section class="card xpcard" id="hero" aria-label="Your level"></section>
       <section id="next" aria-label="Next up"></section>
       <section id="bored" aria-label="I'm bored"></section>
       <section id="quests" class="on-blue" aria-label="Today's bars"></section>
     </div>
-    <aside class="col side">
+    <div class="view" data-view="boss" hidden>
       <section class="card" id="boss" aria-label="Weekly boss"></section>
-      <section class="card" id="miles" aria-label="Real-life wins"></section>
+      <section class="card" id="trophies" aria-label="Trophy cabinet"></section>
+    </div>
+    <div class="view" data-view="shop" hidden>
       <section class="card" id="shop" aria-label="Shop"></section>
+    </div>
+    <div class="view" data-view="stats" hidden>
+      <section class="card" id="stats" aria-label="Your stats"></section>
+      <section class="card" id="miles" aria-label="Real-life wins"></section>
       <section class="card" id="history" aria-label="Last five weeks"></section>
-    </aside>
+    </div>
+    <div class="view" data-view="more" hidden>
+      <div id="settings"></div>
+    </div>
   </main>
-
-  <footer class="foot on-blue" id="foot"></footer>
 </div>
+<nav class="island" id="island" aria-label="Main"></nav>
 </div>
 <div id="onboard" hidden></div>
 
