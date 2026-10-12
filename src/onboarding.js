@@ -8,7 +8,7 @@ import { ALL, DAY_ORDER, DAY_SHORT, esc, daysLabel } from "./util.js";
 */
 const $ = id => document.getElementById(id);
 const STEPS = 6;
-let step = 0, A = null, plan = [], opts = {};
+let step = 0, A = null, plan = [], opts = {}, shownStep = -1, picked = "";
 
 const CHECK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const SWAP = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h13l-3-3M20 16H7l3 3" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -30,7 +30,7 @@ export function openOnboarding(o) {
     days: (p.days && p.days.length ? p.days : ALL).slice(),
     times: (p.times && p.times.length ? p.times : ["after", "evening"]).slice()
   };
-  step = 0; plan = [];
+  step = 0; plan = []; shownStep = -1;
   $("onboard").hidden = false;
   render();
   window.scrollTo(0, 0);
@@ -38,12 +38,12 @@ export function openOnboarding(o) {
 export function closeOnboarding() { $("onboard").hidden = true; $("onboard").innerHTML = ""; }
 
 function tile(kind, v, title, sub, color, on, extra = "") {
-  return `<button type="button" class="ob-tile" style="--c:${color}" data-k="${kind}" data-v="${esc(v)}" aria-pressed="${on}">
+  return `<button type="button" class="ob-tile ${picked === kind + ":" + v ? "picked" : ""}" style="--c:${color}" data-k="${kind}" data-v="${esc(v)}" aria-pressed="${on}">
     <span class="ob-blob" aria-hidden="true"></span><b>${title}</b>${sub ? `<span>${sub}</span>` : ""}${extra}
     <i class="ob-tick" aria-hidden="true">${CHECK}</i></button>`;
 }
 function chip(kind, v, label, on) {
-  return `<button type="button" class="ob-chip" data-k="${kind}" data-v="${esc(v)}" aria-pressed="${on}">${label}</button>`;
+  return `<button type="button" class="ob-chip ${picked === kind + ":" + v ? "picked" : ""}" data-k="${kind}" data-v="${esc(v)}" aria-pressed="${on}">${label}</button>`;
 }
 
 function render() {
@@ -103,7 +103,8 @@ function render() {
 
   const pct = Math.round((step + 1) / STEPS * 100);
   const showBack = step > 0 || opts.canCancel;
-  $("onboard").innerHTML = `<div class="ob">
+  const enter = shownStep !== step; shownStep = step;
+  $("onboard").innerHTML = `<div class="ob ${enter ? "enter" : ""}">
     <div class="ob-top">
       ${showBack ? `<button type="button" class="iconbtn" data-k="back" aria-label="Back">${BACK}</button>` : `<span class="ob-logo">Raise the Bar</span>`}
       <div class="ob-prog" role="progressbar" aria-label="Setup progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div>
@@ -114,6 +115,8 @@ function render() {
     <button type="button" class="btn mint wide" data-k="next" ${canNext ? "" : "disabled"}>${next}</button>
     ${step === 0 && opts.onSkip ? `<button type="button" class="linkbtn on-blue-link" data-k="skip">Skip setup, give me starter quests</button>` : ""}
   </div>`;
+  if (enter) [...$("onboard").firstElementChild.children].forEach((c, i) => c.style.setProperty("--d", i));
+  picked = "";
   if (step === 0) { const i = $("ob-nick"); if (i && !A.nick) i.focus(); }
 }
 
@@ -123,6 +126,7 @@ document.addEventListener("click", ev => {
   if ($("onboard").hidden) return;
   const b = ev.target.closest("#onboard [data-k]"); if (!b) return;
   const k = b.dataset.k, v = b.dataset.v;
+  picked = k + ":" + v;
   if (step === 0 && $("ob-nick")) A.nick = $("ob-nick").value.trim().slice(0, 24);
 
   if (k === "goal") {

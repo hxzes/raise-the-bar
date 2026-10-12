@@ -2,6 +2,7 @@
 import { CATS, AREAS, TPL, BORED, BORED_XP, LEVELS, BOSSES, HYPE, MINI_HYPE } from "./content.js";
 import { generatePlan, swapTask, retier, tierInfo, pickDays } from "./plan.js";
 import { openOnboarding, closeOnboarding } from "./onboarding.js";
+import { initFx, banner, levelUp, bossDefeat, bossHit, countUp } from "./fx.js";
 import {
   ALL, WEEKDAYS, DAY_ORDER, DAY_SHORT, todayKey, addDays, dow, mondayOf, dayIndex, fmtDay,
   esc, pick, rid, clamp, firstName, daysLabel, plural
@@ -94,6 +95,16 @@ function normalize(r) {
 }
 let S = defaultState();
 let soundOn = lsGet(LS_SOUND) !== "off";
+let motionOn = lsGet("rtb-motion") !== "off";
+document.documentElement.classList.toggle("motion-off", !motionOn);
+/* Meters animate from their last width to the new one. */
+const lastPct = {};
+function mi(key, pct) {
+  const from = lastPct[key];
+  lastPct[key] = pct;
+  return `<i class="${from != null && from !== pct && motionOn ? "grow" : ""}" style="width:${pct}%;--from:${from ?? pct}%"></i>`;
+}
+let lastCoins = null, lastNextId = null;
 
 /* ---------- derived ---------- */
 const entry = k => S.log[k] || { t: {}, b: 0 };
@@ -229,7 +240,12 @@ function displayName() {
 }
 function renderTop() {
   const cn = coins();
-  $("coins").innerHTML = `${I.coin}<span>${cn}</span>`; $("coins").setAttribute("aria-label", cn + " coins");
+  $("coins").innerHTML = `${I.coin}<span>${lastCoins ?? cn}</span>`; $("coins").setAttribute("aria-label", cn + " coins");
+  if (lastCoins != null && lastCoins !== cn) {
+    countUp($("coins").querySelector("span"), lastCoins, cn);
+    const pill = $("coins"); pill.classList.remove("bump"); void pill.offsetWidth; pill.classList.add("bump");
+  }
+  lastCoins = cn;
   const t = todayKey(), left = needFor(t) - dayCount(t), name = displayName();
   $("hello").innerHTML = `<b>YO${name ? " " + esc(name.toUpperCase()) : ""}.</b> `
     + (left <= 0 ? "Day secured. Everything else is bonus." : `${left} more bar${left === 1 ? "" : "s"} to secure today.`);
@@ -308,7 +324,7 @@ function renderHero() {
       <div class="lvl-badge sm" aria-label="Level ${lv.L}"><small>LVL</small><b>${lv.L}</b></div>
       <div class="xs-main">
         <div class="xs-top"><span class="xs-rank">${lv.name}</span><span class="num">${lv.into} / ${lv.need} XP</span></div>
-        <div class="meter xp" id="xpbar" role="progressbar" aria-label="XP to next level" aria-valuemin="0" aria-valuemax="${lv.need}" aria-valuenow="${lv.into}"><i style="width:${pct}%"></i></div>
+        <div class="meter xp" id="xpbar" role="progressbar" aria-label="XP to next level" aria-valuemin="0" aria-valuemax="${lv.need}" aria-valuenow="${lv.into}">${mi("xp", pct)}</div>
         <div class="xs-stats">
           <span class="xs-stat">${I.flame}<b>${st}</b>day streak</span>
           <span class="xs-stat">${shieldFree ? I.shield : I.shieldOff}${shieldFree ? "Shield ready" : "Shield used"}</span>
@@ -343,7 +359,8 @@ function renderNext() {
     return;
   }
   const c = CATS[t.cat] || CATS.mind, slot = (SLOTS.find(s => s[0] === t.slot) || SLOTS[3])[1];
-  box.innerHTML = `<div class="card nextup" style="--c:${c.c}">
+  const swap = lastNextId !== null && lastNextId !== t.id; lastNextId = t.id;
+  box.innerHTML = `<div class="card nextup ${swap ? "swapin" : ""}" style="--c:${c.c}">
     <span class="eyebrow">Next up · ${slot}${t.time ? " · " + esc(t.time) : ""}</span>
     <h2 class="nu-title">${esc(t.name)}</h2>
     <p class="nu-meta">${t.min > 1 ? `~${t.min} min · ` : ""}+${t.xp} XP · +${t.xp} coins</p>
@@ -386,6 +403,7 @@ function renderBored() {
   $("bored").innerHTML = btn + panel;
 }
 
+let barIdx = 0;
 function barHTML(t, m) {
   const c = CATS[t.cat] || CATS.mind;
   const cls = m === "f" ? "is-done" : m === "m" ? "is-mini" : "";
@@ -394,14 +412,14 @@ function barHTML(t, m) {
   const side = editMode
     ? `<button class="check edit" data-act="edit" data-id="${esc(t.id)}" data-key="e-${esc(t.id)}" aria-label="Edit ${esc(t.name)}">${I.pencil}</button><span class="xp">+${t.xp}</span>`
     : `<button class="check" data-act="full" data-id="${esc(t.id)}" data-key="f-${esc(t.id)}" aria-pressed="${m === "f"}" aria-label="Done: ${esc(t.name)}">${I.check}</button><span class="xp">+${t.xp}</span>`;
-  return `<div class="bar-wrap" data-bar="${esc(t.id)}"><article class="bar ${cls}" style="--c:${c.c}">
+  return `<div class="bar-wrap" data-bar="${esc(t.id)}" style="--i:${barIdx++}"><article class="bar ${cls}" style="--c:${c.c}">
     <div class="bar-body"><div class="bar-top">${top}</div><h3 class="bar-title">${esc(t.name)}</h3>${lazy}</div>
     <div class="bar-side">${side}</div></article></div>`;
 }
 function renderQuests() {
   const k = viewKey(), e = entry(k);
   const list = editMode ? S.tasks : sched(k);
-  let body = "";
+  let body = ""; barIdx = 0;
   for (const [slot, label] of SLOTS) {
     const ts = list.filter(t => t.slot === slot).sort((a, b) => toMin(a.time) - toMin(b.time) || a.name.localeCompare(b.name));
     if (!ts.length) continue;
@@ -455,7 +473,7 @@ function renderBoss() {
       </div>
     </div>
     ${st.won ? `<p class="num">Down for the week. You got +${BOSS_COINS} coins, +${BOSS_XP} XP and a trophy.</p>` : `
-    <div class="meter hp" role="progressbar" aria-label="Boss HP" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${st.left}"><i style="width:${Math.max(3, Math.round(st.left / total * 100))}%"></i></div>
+    <div class="meter hp" role="progressbar" aria-label="Boss HP" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${st.left}">${mi("boss", Math.max(3, Math.round(st.left / total * 100)))}</div>
     <div class="num">HP ${st.left} / ${total} · every XP you earn hits</div>
     ${st.heal ? `<p class="heal">Healed +${st.heal} from ${st.missed.length} missed day${st.missed.length === 1 ? "" : "s"}. Your weekly shield blocks one.</p>` : ""}
     <p class="reward">${I.trophy}Win: +${BOSS_COINS} coins · +${BOSS_XP} XP · trophy</p>`}
@@ -500,18 +518,18 @@ function renderShop() {
   if (!shopUnlocked()) {
     box.innerHTML = `<div class="row-between"><h2 class="h3">Shop</h2><span class="chip-s">Locked</span></div>
       <p class="lock-text">${I.lock}The shop opens at ${SHOP_AT} coins. You have ${c}.</p>
-      <div class="meter wish"><i style="width:${Math.max(3, Math.min(100, Math.round(c / SHOP_AT * 100)))}%"></i></div>`;
+      <div class="meter wish">${mi("shoplock", Math.max(3, Math.min(100, Math.round(c / SHOP_AT * 100))))}</div>`;
     return;
   }
   const rate = earnRate();
   let content;
   if (shopTab === "treats") {
-    const rows = S.treats.map(tr => {
+    const rows = S.treats.map((tr, ti) => {
       const sure = confirmBuy === tr.id;
       const action = editMode
         ? `<button class="iconbtn" data-act="treat-del" data-id="${esc(tr.id)}" data-key="td-${esc(tr.id)}" aria-label="Remove ${esc(tr.name)}">${I.x}</button>`
         : `<button class="btn ${sure ? "mint" : ""}" data-act="buy" data-id="${esc(tr.id)}" data-key="b-${esc(tr.id)}" ${c < tr.cost ? "disabled" : ""}>${sure ? "Sure?" : "Get"}</button>`;
-      return `<div class="treat"><span class="treat-name">${esc(tr.name)}<small>${daysOf(tr.cost, rate)} of quests</small></span><span class="cost">${I.coin}${tr.cost}</span>${action}</div>`;
+      return `<div class="treat" style="--i:${ti}"><span class="treat-name">${esc(tr.name)}<small>${daysOf(tr.cost, rate)} of quests</small></span><span class="cost">${I.coin}${tr.cost}</span>${action}</div>`;
     }).join("") || `<p class="last">No treats yet. Tap Edit to add one.</p>`;
     const form = editMode ? `<form class="tr-form" id="tr-form">
         <input class="inp" id="tr-name" maxlength="60" placeholder="New treat" aria-label="Treat name" autocomplete="off" value="${esc(keepT)}">
@@ -521,7 +539,7 @@ function renderShop() {
     content = `<div class="treats">${rows}</div>${form}${last ? `<p class="last">Last: ${esc(last.n)} · ${fmtDay(last.d)}</p>` : ""}`;
   } else {
     const now = Date.now(), bonusFree = !S.skipWeeks.includes(mondayOf(todayKey()));
-    const items = S.wish.map(w => {
+    const items = S.wish.map((w, wi) => {
       const pct = Math.min(100, Math.round(c / w.need * 100));
       const left = w.added + COOL_MS - now, cooled = left <= 0, earned = c >= w.need, ready = cooled && w.ok && earned;
       const li = (ok, text) => `<li class="${ok ? "ok" : ""}"><i>${ok ? I.miniCheck : ""}</i>${text}</li>`;
@@ -530,10 +548,10 @@ function renderShop() {
           <button class="btn mint" data-act="wish-yes" data-id="${esc(w.id)}" data-key="wy-${esc(w.id)}">Yes</button>
           <button class="btn white" data-act="wish-no" data-id="${esc(w.id)}" data-key="wn-${esc(w.id)}">Nah${bonusFree ? ` · +${SKIP_BONUS}` : ""}</button></div>`;
       else if (ready) action = `<div class="wish-actions"><button class="btn mint" data-act="wish-buy" data-id="${esc(w.id)}" data-key="wb-${esc(w.id)}">${confirmWish === w.id ? `Tap again: pay ${w.need} coins` : "Unlocked · Buy it"}</button></div>`;
-      return `<div class="wish-item ${ready ? "ready" : ""}">
+      return `<div class="wish-item ${ready ? "ready" : ""}" style="--i:${wi}">
         <div class="wish-head"><span class="wish-name">${esc(w.name)}</span><span class="price">${w.price} €</span>
           <button class="iconbtn" data-act="wish-del" data-id="${esc(w.id)}" data-key="wd-${esc(w.id)}" aria-label="Remove ${esc(w.name)}">${I.x}</button></div>
-        <div class="meter wish" role="progressbar" aria-label="Coins toward ${esc(w.name)}" aria-valuemin="0" aria-valuemax="${w.need}" aria-valuenow="${Math.min(c, w.need)}"><i style="width:${Math.max(3, pct)}%"></i></div>
+        <div class="meter wish" role="progressbar" aria-label="Coins toward ${esc(w.name)}" aria-valuemin="0" aria-valuemax="${w.need}" aria-valuenow="${Math.min(c, w.need)}">${mi("w-" + w.id, Math.max(3, pct))}</div>
         <ul class="checks">
           ${li(earned, `${Math.min(c, w.need)} / ${w.need} coins${earned ? "" : ` · ${daysOf(w.need - c, rate)} to go`}`)}
           ${li(cooled, cooled ? "72 h cooldown done" : `72 h cooldown · ${fmtLeft(left)} left`)}
@@ -570,7 +588,7 @@ function renderHistory() {
     else if (k < S.startDate) cls += " pre";
     else { const s = sched(k), e = entry(k), all = s.length > 0 && s.every(x => e.t[x.id]); cls += all ? " l3" : secured(k) ? " l2" : dayCount(k) > 0 ? " l1" : ""; }
     if (k === t) cls += " now";
-    cells += `<span class="${cls}" title="${fmtDay(k)}${k > t ? "" : ": " + dayCount(k) + " done"}"></span>`;
+    cells += `<span class="${cls}" style="--i:${i}" title="${fmtDay(k)}${k > t ? "" : ": " + dayCount(k) + " done"}"></span>`;
   }
   $("history").innerHTML = `
     <div class="row-between"><h2 class="h3">Last 5 weeks</h2></div>
@@ -606,6 +624,7 @@ function renderSettings() {
       <h2 class="h3">App</h2>
       <div class="ci-actions">
         <button class="btn white" data-act="sound" data-key="sound" aria-pressed="${soundOn}">Sound ${soundOn ? "on" : "off"}</button>
+        <button class="btn white" data-act="motion" data-key="motion" aria-pressed="${motionOn}">Animations ${motionOn ? "on" : "off"}</button>
         <button class="btn ${confirmReset ? "red" : "white"}" data-act="reset" data-key="reset">${confirmReset ? "Tap again: wipe progress" : "Reset progress"}</button>
       </div>
     </div>`;
@@ -617,7 +636,7 @@ function renderTrophies() {
   const wins = Object.entries(S.bossWins).sort((a, b) => a[0] < b[0] ? 1 : -1);
   const cur = bossFor(mondayOf(todayKey())), next = bossFor(addDays(mondayOf(todayKey()), 7));
   const color = n => (BOSSES.find(b => b.n === n) || cur).c;
-  const rows = wins.map(([m, w]) => { const n = w.n || bossFor(m).n; return `<div class="tro-row">
+  const rows = wins.map(([m, w], i) => { const n = w.n || bossFor(m).n; return `<div class="tro-row" style="--i:${i}">
       <div class="tro-art">${bossSVG(color(n), true)}</div>
       <div class="tro-meta"><b>${esc(n)}</b><span>Week of ${fmtDay(m)}</span></div>
       <span class="tro-rew">${I.trophy}+${BOSS_COINS}</span></div>`; }).join("");
@@ -672,7 +691,15 @@ function setView(v, fromHash) {
   if (v === "boss" && S.flags.bossIntro && !S.flags.bossSeen) { S.flags.bossSeen = true; seen = true; }
   if (v === "shop" && S.flags.shopIntro && !S.flags.shopSeen) { S.flags.shopSeen = true; seen = true; }
   if (seen) commit(); else renderIsland();
-  if (changed) window.scrollTo(0, 0);
+  if (changed) { window.scrollTo(0, 0); playEnter(v); }
+}
+function playEnter(v) {
+  const el = document.querySelector(`#app .view[data-view="${v}"]`); if (!el || !motionOn) return;
+  [...el.children].forEach((c, i) => c.style.setProperty("--d", i));
+  el.classList.remove("enter"); void el.offsetWidth; el.classList.add("enter");
+  clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove("enter"), 1400);
+  const act = document.querySelector("#island [aria-current]"); if (act) { act.classList.remove("just"); void act.offsetWidth; act.classList.add("just"); }
+  if (v === "stats") el.querySelectorAll(".stat-cell b").forEach(b => countUp(b, 0, Number(b.textContent) || 0, 800));
 }
 function setViewQuiet(v) {
   view = VIEWS.some(x => x[0] === v) ? v : "today";
@@ -693,20 +720,21 @@ function sfx(type) {
   if (!soundOn) return;
   try {
     actx = actx || new (window.AudioContext || window.webkitAudioContext)();
-    const t0 = actx.currentTime, seq = { pop: [740, 1110], undo: [420, 300], secure: [660, 880, 1100], big: [523, 659, 784, 1047, 1319] }[type] || [740];
+    const t0 = actx.currentTime, seq = { pop: [740, 1110], undo: [420, 300], secure: [660, 880, 1100], big: [523, 659, 784, 1047, 1319],
+      hit: [190, 120], crit: [260, 160, 90], poof: [420, 300, 210, 140] }[type] || [740];
+    const wave = (type === "hit" || type === "crit") ? "square" : type === "poof" ? "sawtooth" : "triangle";
     seq.forEach((f, i) => {
       const o = actx.createOscillator(), g = actx.createGain(), t = t0 + i * 0.075;
-      o.type = "triangle"; o.frequency.setValueAtTime(f, t);
+      o.type = wave; o.frequency.setValueAtTime(f, t);
       g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.14, t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.17);
       o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t + 0.19);
     });
   } catch {}
 }
-const reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const fx = $("fx"), cx = fx.getContext("2d"); let parts = [], raf = 0, palette = null;
 function sizeFx() { const r = window.devicePixelRatio || 1; fx.width = innerWidth * r; fx.height = innerHeight * r; cx.setTransform(r, 0, 0, r, 0, 0); }
 function burst(x, y, n, power) {
-  if (reduced) return;
+  if (!motionOn) return;
   if (!palette) { const cs = getComputedStyle(document.documentElement); palette = ["--sun", "--tang", "--bubble", "--mint", "--grape", "--sky", "--paper"].map(v => cs.getPropertyValue(v).trim()); }
   if (!raf) sizeFx();
   for (let i = 0; i < n; i++) {
@@ -726,10 +754,10 @@ function tick() {
   raf = parts.length ? requestAnimationFrame(tick) : (cx.clearRect(0, 0, innerWidth, innerHeight), 0);
 }
 function bigBurst() { burst(innerWidth * 0.25, innerHeight * 0.35, 46, 1.3); burst(innerWidth * 0.75, innerHeight * 0.35, 46, 1.3); }
-function floatXP(el, text) {
-  if (!el || reduced) return;
+function floatXP(el, text, cls = "float-xp") {
+  if (!el || !motionOn) return;
   const r = el.getBoundingClientRect(), s = document.createElement("span");
-  s.className = "float-xp"; s.textContent = text;
+  s.className = cls; s.textContent = text;
   s.style.left = (r.left + r.width / 2) + "px"; s.style.top = (r.top - 6) + "px";
   document.body.appendChild(s); setTimeout(() => s.remove(), 950);
   const bar = $("xpbar"); if (bar) { bar.classList.remove("pulse"); void bar.offsetWidth; bar.classList.add("pulse"); }
@@ -738,14 +766,19 @@ function floatXP(el, text) {
 /* ---------- actions ---------- */
 function commit() { S.updatedAt = Date.now(); lsSet(LS_KEY, JSON.stringify(S)); if (store) store.push(); render(); }
 function cleanDay(k) { const e = S.log[k]; if (e && !Object.keys(e.t).length && !(e.b > 0)) delete S.log[k]; }
-function metrics(k) { return { lvl: levelInfo(totalXP()).L, sec: secured(k) }; }
+function metrics(k) {
+  const m = { lvl: levelInfo(totalXP()).L, sec: secured(k), bl: null, bt: null };
+  const mon = mondayOf(todayKey());
+  if (bossUnlocked() && !S.bossWins[mon]) { const st = bossState(mon); m.bl = st.left; m.bt = st.hp + st.heal; }
+  return m;
+}
 /* Boss win + unlocks, applied to S before saving. Returns messages to show. */
 function sideEffects() {
   const msgs = [];
   const mon = mondayOf(todayKey());
   if (bossUnlocked() && !S.bossWins[mon]) {
     const st = bossState(mon);
-    if (st.dmg >= st.hp + st.heal) { S.bossWins[mon] = { n: st.boss.n }; S.xpBonus += BOSS_XP; msgs.push({ big: true, text: `${st.boss.n} is down! +${BOSS_COINS} coins, +${BOSS_XP} XP` }); }
+    if (st.dmg >= st.hp + st.heal) { S.bossWins[mon] = { n: st.boss.n }; S.xpBonus += BOSS_XP; msgs.push({ big: true, boss: st.boss, text: `${st.boss.n} is down! +${BOSS_COINS} coins, +${BOSS_XP} XP` }); }
   }
   if (!S.flags.bossIntro && bossUnlocked()) { S.flags.bossIntro = true; msgs.push({ text: "New: a weekly boss appeared" }); }
   if (!S.flags.shopIntro && shopUnlocked()) { S.flags.shopIntro = true; msgs.push({ text: "New: the shop is open" }); }
@@ -754,20 +787,39 @@ function sideEffects() {
 function celebrate(before, after, k, o, msgs) {
   if (!o.added) { sfx("undo"); toast(pick(["Undone.", "Took it back."])); msgs.forEach(m => toastLater(m.text)); return; }
   if (o.el) { o.el.classList.remove("pop"); void o.el.offsetWidth; o.el.classList.add("pop"); }
-  const art = $("boss-art"); if (art) { art.classList.remove("hit"); void art.offsetWidth; art.classList.add("hit"); }
   floatXP(o.btn, `+${o.xp} XP`);
-  const big = msgs.find(m => m.big);
-  if (o.firstWin) { sfx("big"); bigBurst(); toast(`First W! +${FIRST_WIN_COINS} bonus coins`); }
-  else if (after.lvl > before.lvl) { sfx("big"); bigBurst(); toast(`Level up! Lvl ${after.lvl}: ${levelInfo(totalXP()).name}`); }
-  else if (big) { sfx("big"); bigBurst(); toast(big.text); }
-  else if (after.sec && !before.sec) { sfx("secure"); bigBurst(); toast(k === todayKey() ? `Day secured. Streak ${streak()}.` : "Yesterday secured."); }
-  else {
-    sfx("pop");
-    const r = (o.el || document.body).getBoundingClientRect();
-    burst(Math.min(innerWidth - 40, r.right - 60), r.top + r.height / 2, 22, 0.8);
-    toast(o.mini ? pick(MINI_HYPE) : `+${o.xp} · ${pick(HYPE)}`);
+  const bossWin = msgs.find(m => m.boss);
+  let big = false;
+
+  // The boss takes the hit: in place on the Boss tab, otherwise a small HUD.
+  if (before.bl != null && !bossWin) {
+    const left = after.bl != null ? after.bl : 0, total = after.bt || before.bt;
+    if (left < before.bl) {
+      const b = bossFor(mondayOf(todayKey()));
+      if (view === "boss") {
+        const art = $("boss-art");
+        if (art) { art.classList.remove("hit"); void art.offsetWidth; art.classList.add("hit"); floatXP(art, `-${before.bl - left}`, "float-dmg"); }
+      } else {
+        bossHit({ svg: bossSVG(b.c, false), name: b.n, fromPct: Math.round(before.bl / total * 100), toPct: Math.round(left / total * 100), left, total, dmg: before.bl - left });
+      }
+    }
   }
-  msgs.filter(m => !m.big || o.firstWin || after.lvl > before.lvl).forEach(m => toastLater(m.text));
+  if (o.firstWin) { big = true; sfx("big"); bigBurst(); banner("First W!", `+${FIRST_WIN_COINS} bonus coins`, "var(--mint)"); }
+  if (after.sec && !before.sec) { big = true; if (!o.firstWin) sfx("secure"); bigBurst(); banner(k === todayKey() ? "Day secured" : "Yesterday secured", `Streak ${streak()}`, "var(--sun)"); }
+  if (bossWin) {
+    big = true;
+    const b = bossWin.boss;
+    bossDefeat({ name: b.n, line: b.low, svgAlive: bossSVG(b.c, false), svgDead: bossSVG(b.c, true),
+      fromPct: before.bt ? Math.max(8, Math.round(before.bl / before.bt * 100)) : 30, coins: BOSS_COINS, xp: BOSS_XP });
+  }
+  if (after.lvl > before.lvl) { big = true; levelUp(after.lvl, levelInfo(totalXP()).name); }
+  if (!big) {
+    sfx("pop");
+    const r = (o.el || o.btn || document.body).getBoundingClientRect();
+    burst(Math.min(innerWidth - 40, r.right - 60), r.top + r.height / 2, 24, 0.85);
+    toast(o.bored ? `+${o.xp} · Boredom: defeated.` : o.mini ? pick(MINI_HYPE) : `+${o.xp} · ${pick(HYPE)}`);
+  }
+  msgs.filter(m => !m.boss).forEach(m => toastLater(m.text));
 }
 function toggle(id, mode, btn) {
   const k = viewKey(), t = S.tasks.find(x => x.id === id); if (!t) return;
@@ -796,14 +848,8 @@ function doBored(btn) {
   const msgs = sideEffects();
   const rect = btn ? btn.getBoundingClientRect() : null;
   commit();
-  const after = metrics(k);
-  if (firstWin || after.lvl > before.lvl || (after.sec && !before.sec) || msgs.some(m => m.big)) {
-    celebrate(before, after, k, { added: true, xp, firstWin, btn: rect ? { getBoundingClientRect: () => rect } : null }, msgs);
-  } else {
-    sfx("pop"); const r = $("bored").getBoundingClientRect(); burst(r.left + r.width / 2, r.top + 40, 30, 1);
-    if (rect) floatXP({ getBoundingClientRect: () => rect }, `+${xp} XP`);
-    toast(`+${xp} · Boredom: defeated.`); msgs.forEach(m => toastLater(m.text));
-  }
+  const anchor = rect ? { getBoundingClientRect: () => rect } : null;
+  celebrate(before, metrics(k), k, { added: true, xp, firstWin, bored: true, btn: anchor, el: null }, msgs);
 }
 function buy(id) {
   const tr = S.treats.find(x => x.id === id); if (!tr) return;
@@ -811,7 +857,7 @@ function buy(id) {
   confirmBuy = null;
   if (coins() < tr.cost) { render(); return; }
   S.spent += tr.cost; S.buys.push({ n: tr.name, c: tr.cost, d: todayKey() }); S.buys = S.buys.slice(-20);
-  commit(); sfx("secure"); bigBurst(); toast("Enjoy it. You earned it.");
+  commit(); sfx("secure"); bigBurst(); banner("Treat unlocked", tr.name, "var(--bubble)");
 }
 function setupAnswers() {
   return S.onboard || { goals: ["fit", "mind"], specific: {}, level: 1, difficulty: "normal", minutes: 15, days: ALL.slice(), times: ["after", "evening"] };
@@ -847,7 +893,7 @@ function startSetup(first) {
       if (fresh) { S.startDate = todayKey(); S.bossHP = {}; }
       S.checkins[mondayOf(todayKey())] = "done";
       S.flags.noSetup = false; viewDay = 0; editMode = false; nextSkip.clear(); setViewQuiet("today"); history.replaceState(null, "", "#today");
-      $("app").hidden = false; ensureWeek(); commit(); window.scrollTo(0, 0);
+      $("app").hidden = false; ensureWeek(); commit(); window.scrollTo(0, 0); playEnter("today");
       sfx("big"); bigBurst(); toast(`Let's go${S.nick ? ", " + S.nick : ""}. Week 1 starts now.`);
     },
     onCancel: () => { $("app").hidden = false; render(); },
@@ -937,7 +983,7 @@ document.addEventListener("click", ev => {
       if (coins() < w.need) { render(); toast("Not enough coins yet."); return; }
       S.wish = S.wish.filter(x => x.id !== id); S.spent += w.need;
       S.buys.push({ n: `${w.name} (${w.price} €)`, c: w.need, d: todayKey() }); S.buys = S.buys.slice(-20);
-      commit(); sfx("big"); bigBurst(); toast("Earned it. Go get it.");
+      commit(); sfx("big"); bigBurst(); banner("You earned it", w.name, "var(--mint)");
     } break;
     case "wish-del": S.wish = S.wish.filter(x => x.id !== id); commit(); break;
     case "ci-toggle": if (b.checked) ciOff.delete(id); else ciOff.add(id); return;
@@ -946,6 +992,7 @@ document.addEventListener("click", ev => {
     case "setup": startSetup(false); break;
     case "setup-no": S.flags.noSetup = true; commit(); break;
     case "mq-edit": mqEditing = true; render(); { const i = $("mq-input"); if (i) { i.focus(); i.select(); } } break;
+    case "motion": motionOn = !motionOn; lsSet("rtb-motion", motionOn ? "on" : "off"); document.documentElement.classList.toggle("motion-off", !motionOn); render(); toast(motionOn ? "Animations on." : "Animations off."); break;
     case "sound": soundOn = !soundOn; lsSet(LS_SOUND, soundOn ? "on" : "off"); render(); if (soundOn) sfx("pop"); break;
     case "nav": setView(b.dataset.v); break;
     case "export": exportSave(); break;
@@ -1047,7 +1094,7 @@ export async function startApp(u, options = {}) {
   view = "";
   setViewQuiet(location.hash.slice(1));
   if (isFresh() && !S.flags.noSetup) startSetup(true);
-  else { $("app").hidden = false; render(); }
+  else { $("app").hidden = false; render(); playEnter(view); }
 
   if (store) {
     store.listen();
@@ -1069,3 +1116,4 @@ export function stopApp() {
 }
 
 buildEditor();
+initFx({ sfx, burst, motion: () => motionOn });
