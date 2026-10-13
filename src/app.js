@@ -220,7 +220,7 @@ function bossSVG(color, dead, hidden) {
 
 /* ---------- ui state ---------- */
 let viewDay = 0, editMode = false, boredOpen = false, boredIdx = -1, boredMin = 5, boredLow = false, mqEditing = false;
-let confirmBuy = null, confirmReset = false, editingId = null, confirmDel = false, confirmWish = null;
+let confirmBuy = null, confirmReset = false, editingId = null, confirmDel = false, confirmWish = null, confirmUndo = false;
 let shopTab = "treats", nextSkip = new Set(), ciOff = new Set();
 let sync = "local", lastToday = todayKey();
 const $ = id => document.getElementById(id);
@@ -536,7 +536,8 @@ function renderShop() {
         <input class="inp cost-in" id="tr-cost" inputmode="numeric" maxlength="5" placeholder="Coins" aria-label="Cost in coins" autocomplete="off" value="${esc(keepTc)}">
         <button class="btn" type="submit">Add</button></form>` : "";
     const last = S.buys.length ? S.buys[S.buys.length - 1] : null;
-    content = `<div class="treats">${rows}</div>${form}${last ? `<p class="last">Last: ${esc(last.n)} · ${fmtDay(last.d)}</p>` : ""}`;
+    const canUndo = last && (last.d === todayKey() || last.d === addDays(todayKey(), -1));
+    content = `<div class="treats">${rows}</div>${form}${last ? `<p class="last">Last: ${esc(last.n)} · ${fmtDay(last.d)}${canUndo ? ` <button class="linkbtn undo-buy" data-act="buy-undo" data-key="buy-undo">${confirmUndo ? `Tap again: refund ${last.c} coins` : "Undo"}</button>` : ""}</p>` : ""}`;
   } else {
     const now = Date.now(), bonusFree = !S.skipWeeks.includes(mondayOf(todayKey()));
     const items = S.wish.map((w, wi) => {
@@ -989,6 +990,7 @@ document.addEventListener("click", ev => {
   if (act !== "buy" && confirmBuy) confirmBuy = null;
   if (act !== "reset" && confirmReset) confirmReset = false;
   if (act !== "wish-buy") confirmWish = null;
+  if (act !== "buy-undo") confirmUndo = false;
   switch (act) {
     case "full": toggle(id, "f", b); break;
     case "mini": toggle(id, "m", b); break;
@@ -1009,6 +1011,14 @@ document.addEventListener("click", ev => {
     case "bored-close": boredOpen = false; render(); break;
     case "shoptab": shopTab = b.dataset.v === "wish" ? "wish" : "treats"; render(); break;
     case "buy": buy(id); break;
+    case "buy-undo": {
+      if (!confirmUndo) { confirmUndo = true; render(); return; }
+      confirmUndo = false;
+      const l = S.buys.pop(); if (!l) { render(); break; }
+      S.spent = Math.max(0, S.spent - (Number(l.c) || 0));
+      if (l.w && !S.wish.some(x => x.id === l.w.id)) S.wish.push(l.w);
+      commit(); sfx("undo"); toast(`Refunded ${l.c} coins.`);
+    } break;
     case "treat-del": S.treats = S.treats.filter(t => t.id !== id); commit(); break;
     case "wish-yes": { const w = S.wish.find(x => x.id === id); if (w) { w.ok = true; commit(); toast("Locked in. Keep doing bars."); } } break;
     case "wish-no": {
@@ -1024,7 +1034,7 @@ document.addEventListener("click", ev => {
       confirmWish = null;
       if (coins() < w.need) { render(); toast("Not enough coins yet."); return; }
       S.wish = S.wish.filter(x => x.id !== id); S.spent += w.need;
-      S.buys.push({ n: `${w.name} (${w.price} €)`, c: w.need, d: todayKey() }); S.buys = S.buys.slice(-20);
+      S.buys.push({ n: `${w.name} (${w.price} €)`, c: w.need, d: todayKey(), w: { ...w } }); S.buys = S.buys.slice(-20);
       commit(); sfx("big"); bigBurst(); banner("You earned it", w.name, "var(--mint)");
     } break;
     case "wish-del": S.wish = S.wish.filter(x => x.id !== id); commit(); break;
