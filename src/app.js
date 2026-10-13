@@ -46,7 +46,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 function defaultState() {
   return { v: 2, updatedAt: 0, startDate: todayKey(), mainQuest: "", nick: "", onboard: null,
     tasks: defaultTasks(), treats: defaultTreats(), log: {}, banked: { xp: 0, boss: 0 }, spent: 0, buys: [], wish: [],
-    bonus: 0, xpBonus: 0, skipWeeks: [], bossHP: {}, bossWins: {}, checkins: {}, flags: {} };
+    bonus: 0, xpBonus: 0, skipWeeks: [], bossHP: {}, bossWins: {}, checkins: {}, flags: {}, ban: [] };
 }
 const obj = v => (v && typeof v === "object" && !Array.isArray(v)) ? v : {};
 function normalize(r) {
@@ -83,7 +83,8 @@ function normalize(r) {
     bossHP: obj(r.bossHP),
     bossWins: obj(r.bossWins),
     checkins: obj(r.checkins),
-    flags: obj(r.flags)
+    flags: obj(r.flags),
+    ban: Array.isArray(r.ban) ? r.ban.filter(x => TPL[x]).slice(-40) : []
   };
   if (!r.bossWins) {   // saves from before boss v2: past weeks counted at the old fixed HP
     const w = {};
@@ -220,7 +221,7 @@ function bossSVG(color, dead, hidden) {
 
 /* ---------- ui state ---------- */
 let viewDay = 0, editMode = false, boredOpen = false, boredIdx = -1, boredMin = 5, boredLow = false, mqEditing = false;
-let confirmBuy = null, confirmReset = false, editingId = null, confirmDel = false, confirmWish = null, confirmUndo = false;
+let confirmBuy = null, confirmReset = false, editingId = null, confirmDel = false, confirmWish = null, confirmUndo = false, confirmSwap = null;
 let shopTab = "treats", nextSkip = new Set(), ciOff = new Set();
 let sync = "local", lastToday = todayKey();
 const $ = id => document.getElementById(id);
@@ -368,6 +369,7 @@ function renderNext() {
       <button class="btn mint" data-act="full" data-id="${esc(t.id)}" data-key="nu-done">${I.check}Done</button>
       ${t.mini ? `<button class="btn white" data-act="mini" data-id="${esc(t.id)}" data-key="nu-mini">Lazy: ${esc(t.mini)} · +${half(t.xp)}</button>` : ""}
       <button class="linkbtn" data-act="next-skip" data-id="${esc(t.id)}" data-key="nu-skip">Later</button>
+      <button class="linkbtn" data-act="swap" data-id="${esc(t.id)}" data-key="nu-swap">${confirmSwap === t.id ? "Tap again: swap it" : "Swap"}</button>
     </div></div>`;
 }
 
@@ -902,6 +904,25 @@ function buy(id) {
   S.spent += tr.cost; S.buys.push({ n: tr.name, c: tr.cost, d: todayKey() }); S.buys = S.buys.slice(-20);
   commit(); sfx("secure"); bigBurst(); banner("Treat unlocked", tr.name, "var(--bubble)");
 }
+/* Swap a quest for a different one from the library. The old one won't be offered again. */
+const LEGACY_TPL = { reach: "outreach" };
+function tplGuess(t) {
+  if (t.tpl) return t.tpl;
+  if (LEGACY_TPL[t.id] && TPL[LEGACY_TPL[t.id]]) return LEGACY_TPL[t.id];
+  const w = t.name.toLowerCase().split(/\s+/)[0];
+  const hit = Object.values(TPL).find(x => x.cat === t.cat && x.tiers.some(r => r[0].toLowerCase().split(/\s+/)[0] === w));
+  return hit ? hit.id : null;
+}
+function swapQuest(id) {
+  const i = S.tasks.findIndex(t => t.id === id); if (i < 0) return;
+  const old = S.tasks[i], gone = tplGuess(old);
+  if (gone && !S.ban.includes(gone)) S.ban = S.ban.concat(gone).slice(-40);
+  const have = S.tasks.filter(t => t.id !== id).map(tplGuess).filter(Boolean);
+  const n = swapTask({ ...old, tpl: gone }, S.tasks, setupAnswers(), S.ban.concat(have));
+  if (!n) { toast("No other quest fits right now. Edit it instead."); return; }
+  S.tasks[i] = n; nextSkip.delete(id);
+  commit(); sfx("pop"); toast(`Swapped for: ${n.name}`);
+}
 function setupAnswers() {
   return S.onboard || { goals: ["fit", "mind"], specific: {}, level: 1, difficulty: "normal", minutes: 15, days: ALL.slice(), times: ["after", "evening"] };
 }
@@ -915,7 +936,7 @@ function applyCheckin() {
     if (it.kind === "up") S.tasks[i] = retier(t, t.tier + 1);
     else if (it.kind === "down") S.tasks[i] = retier(t, t.tier - 1);
     else if (it.kind === "fewer") S.tasks[i] = { ...t, days: pickDays("3x", t.days) };
-    else if (it.kind === "swap") { const n = swapTask(t, S.tasks, a); if (n) S.tasks[i] = n; }
+    else if (it.kind === "swap") { const n = swapTask(t, S.tasks, a, S.ban); if (n) S.tasks[i] = n; }
     changed++;
   }
   S.checkins[ci.mon] = "done"; ciOff = new Set();
@@ -964,7 +985,7 @@ function openEditor(id) {
   ed.querySelectorAll('[name="ed-days"]').forEach(i => i.checked = t.days.includes(Number(i.value)));
   const xpPick = XP_CHOICES.reduce((a, b) => Math.abs(b - t.xp) < Math.abs(a - t.xp) ? b : a);
   ed.querySelectorAll('[name="ed-xp"]').forEach(i => i.checked = Number(i.value) === xpPick);
-  $("ed-del").hidden = !id; $("ed-del").textContent = "Delete"; $("ed-err").hidden = true;
+  $("ed-del").hidden = !id; $("ed-del").textContent = "Delete"; $("ed-err").hidden = true; $("ed-swap").hidden = !id;
   if (typeof ed.showModal === "function") { try { ed.showModal(); } catch { ed.setAttribute("open", ""); } } else ed.setAttribute("open", "");
   setTimeout(() => $("ed-name").focus(), 30);
 }
@@ -991,10 +1012,13 @@ document.addEventListener("click", ev => {
   if (act !== "reset" && confirmReset) confirmReset = false;
   if (act !== "wish-buy") confirmWish = null;
   if (act !== "buy-undo") confirmUndo = false;
+  if (act !== "swap") confirmSwap = null;
   switch (act) {
     case "full": toggle(id, "f", b); break;
     case "mini": toggle(id, "m", b); break;
     case "next-skip": nextSkip.add(id); renderNext(); break;
+    case "swap": if (confirmSwap !== id) { confirmSwap = id; renderNext(); return; } confirmSwap = null; swapQuest(id); break;
+    case "ed-swap": { const sid = editingId; closeEditor(); swapQuest(sid); } break;
     case "tab": viewDay = Number(b.dataset.v) || 0; render(); break;
     case "editmode": editMode = !editMode; render(); break;
     case "edit": openEditor(id); break;

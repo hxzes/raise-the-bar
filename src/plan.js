@@ -102,15 +102,15 @@ export function generatePlan(a, keep = []) {
 }
 
 /* Replace one quest with another fitting template (same area first). */
-export function swapTask(task, plan, a) {
-  const used = new Set(plan.map(t => t.tpl));
+export function swapTask(task, plan, a, avoid = []) {
+  const used = new Set(plan.map(t => t.tpl).concat(avoid, task.tpl || []));
   const area = task.tpl && TPL[task.tpl] ? TPL[task.tpl].area : (a.goals[0] || "fit");
   const specs = Object.values(a.specific || {});
   const budget = (MINUTES.includes(a.minutes) ? a.minutes : 15) * 1.15;
   const room = budget - plan.filter(t => t.id !== task.id).reduce((s, t) => s + dailyMinutes(t), 0);
   const tier = task.tier ?? startTier(a);
   const fits = t => { const m = tierInfo(t, tier).min; return (m > 1 ? m : 0) * pickDays(t.freq, a.days).length / 7 <= Math.max(room, 0); };
-  const rank = t => (t.serves.some(s => specs.includes(s)) ? 2 : 0) + (fits(t) ? 4 : 0);
+  const rank = t => (t.area === area ? 3 : 0) + (t.serves.some(s => specs.includes(s)) ? 2 : 0) + (fits(t) ? 4 : 0);
   const options = shuffle(TEMPLATES.filter(t => !used.has(t.id) && (t.area === area || t.u))).sort((x, y) => rank(y) - rank(x));
   const tpl = options[0] || shuffle(TEMPLATES.filter(t => !used.has(t.id) && a.goals.includes(t.area)))[0];
   if (!tpl) return null;
