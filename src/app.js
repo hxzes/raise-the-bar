@@ -61,7 +61,7 @@ function normalize(r) {
     nick: typeof r.nick === "string" ? r.nick.slice(0, 24) : "",
     onboard: r.onboard && r.onboard.v === 2 ? r.onboard : null,
     tasks: Array.isArray(r.tasks) ? r.tasks.filter(t => t && t.id && t.name).map(t => ({
-      id: String(t.id), name: String(t.name).slice(0, 60), mini: String(t.mini || "").slice(0, 60),
+      id: String(t.id), name: (t.tpl === "screentime" ? String(t.name).replace(/^Screen time/, "Phone screen time") : String(t.name)).slice(0, 60), mini: String(t.mini || "").slice(0, 60),
       cat: CATS[t.cat] ? t.cat : "mind", slot: okSlot(t.slot) ? t.slot : "any", time: String(t.time || "").slice(0, 10),
       days: Array.isArray(t.days) ? t.days.map(Number).filter(n => n >= 0 && n <= 6) : ALL.slice(),
       xp: clamp(Number(t.xp) || 20, 5, 100), min: Number(t.min) || 0,

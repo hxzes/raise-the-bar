@@ -81,7 +81,7 @@ export const TEMPLATES = [
   T("nophone_am", "mind", "screen routines", "daily", "morning", 0, "mind", "phone-free morning|phone-free mornings", "phone", [
     ["No phone for the first 10 min", "No socials for the first 5 min", 1, 10], ["No socials before 10:00", "No socials for the first 30 min", 1, 20], ["No socials before 12:00", "No socials before 10:00", 1, 30]]),
   T("screentime", "mind", "screen", "daily", "evening", 0, "mind", "low-screen day|low-screen days", "phone", [
-    ["Screen time under 6 h", "Under 7 h", 1, 10], ["Screen time under 4 h", "Under 5 h", 1, 20], ["Screen time under 3 h", "Under 4 h", 1, 30]]),
+    ["Phone screen time under 6 h", "Under 7 h", 1, 10], ["Phone screen time under 4 h", "Under 5 h", 1, 20], ["Phone screen time under 3 h", "Under 4 h", 1, 30]]),
   T("breathe", "mind", "calm", "daily", "any", 1, "mind", "calm session|calm sessions", "", [
     ["2 min of slow breathing", "5 deep breaths", 2, 10], ["10 min of quiet: walk or meditate", "3 min of breathing", 10, 15], ["20-min meditation", "10 min", 20, 25]]),
   T("journal", "mind", "calm routines", "daily", "evening", 0, "mind", "journal entry|journal entries", "", [
